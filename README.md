@@ -4,19 +4,6 @@ The base instance of the ComplEx System Integrated Utilities Model (CESIUM). You
 
 J. Meluso, J. Austin-Breneman, J. P. Bagrow, and L. Hébert-Dufresne, “A Review & Framework for Modeling Complex Engineered System Development Processes,” arXiv:2103.12820 [nlin], Mar. 2021, Accessed: Mar. 25, 2021. [Online]. Available: http://arxiv.org/abs/2103.12820.
 
-And copy this for bibtex:
-
-@article{Meluso2021,
-  title = {A {{Review}} \& {{Framework}} for {{Modeling Complex Engineered System Development Processes}}},
-  author = {Meluso, John and {Austin-Breneman}, Jesse and Bagrow, James P. and {H{\'e}bert-Dufresne}, Laurent},
-  year = {2021},
-  month = mar,
-  abstract = {Developing complex engineered systems (CES) poses significant challenges for engineers, managers, designers, and businesspeople alike due to the inherent complexity of the systems and contexts involved. Furthermore, experts have expressed great interest in filling the gap in theory about how CES develop. This article begins to address that gap in two ways. First, it reviews the numerous definitions of CES along with existing theory and methods on CES development processes. Then, it proposes the ComplEx System Integrated Utilities Model (CESIUM), a novel framework for exploring how numerous system and development process characteristics may affect the performance of CES. CESIUM creates simulated representations of a system architecture, the corresponding engineering organization, and the new product development process through which the organization designs the system. It does so by representing the system as a network of interdependent artifacts designed by agents. Agents iteratively design their artifacts through optimization and share information with other agents, thereby advancing the CES toward a solution. This paper describes the model, conducts a sensitivity analysis, provides validation, and suggests directions for future study.},
-  archiveprefix = {arXiv},
-  eprint = {2103.12820},
-  eprinttype = {arxiv},
-  journal = {arXiv:2103.12820 [nlin]},
-  primaryclass = {nlin}
-}
+Or use the included bibtex file.
 
 To run one agent, call test_agent.py. To run the model once, run test_system.py.
