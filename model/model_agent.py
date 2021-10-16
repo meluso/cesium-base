@@ -62,6 +62,9 @@ Parameters:
         probability that an agent will generate estimates corresponding to
         a future design. Therefore, a value of 0 corresponds to 100% current
         designs and a value of 1 corresponds to 100% future designs.
+    norm = Boolean
+        A boolean value, either True or False, designating whether or not to
+        normalize the function evaluations.
 
 -------------------------------------------------------------------------------
 Change Log:
@@ -93,6 +96,7 @@ Date:       Author:    Description:
                        method of type "future".
 2020-10-08  jmeluso    Updated the offset value in the Stylinski-Tang function.
 2020-12-23  jmeluso    Added the absolute-sum function.
+2021-03-25  jmeluso    Added function evaluation normalization.
 
 -------------------------------------------------------------------------------
 """
@@ -107,10 +111,10 @@ class Agent(object):
     '''Defines a class agent which designs an artifact in a system.'''
 
 
-    def __init__(self, loc, nbr, obj="ackley", tmp=10, itr=1, mthd = "",
-                    prob = 0, crt=2.62):
-
+    def __init__(self, loc, nbr, agt_type, agt_opts):
         '''Initializes an agent with all of its properties.'''
+        
+        self.agt_type = agt_type  # Get the type of agent
 
         ##### Network Properties #####
 
@@ -119,55 +123,42 @@ class Agent(object):
 
         ##### Objective Properties #####
 
-        self.fn = obj  # Specify the evaluating objective function
-
-
-        # Create the agent's objective
-        self.objective = Objective(self.fn,self.neighbors)
+        self.fn = agt_opts['obj']  # Specify the evaluating objective function
+        self.norm = agt_opts['norm']  # Sets whether or not to normalize objective evals
 
         # Set decision variable boundaries
-        if self.fn == "absolute-sum":
-            self.obj_bounds = Bounds(-10.00,10.00)
-        elif self.fn == "ackley":
-            self.obj_bounds = Bounds(-32.768,32.768)
-        elif self.fn == "griewank":
-            self.obj_bounds = Bounds(-600.00,600.00)
-        elif self.fn == "langermann":
-            self.obj_bounds = Bounds(0.00,10.00)
-        elif self.fn == "levy":
-            self.obj_bounds = Bounds(-10.00,10.00)
-        elif self.fn == "rosenbrock":
-            self.obj_bounds = Bounds(-5.00,10.00)
-        elif self.fn == "schwefel":
-            self.obj_bounds = Bounds(-500.00,500.00)
-        elif self.fn == "sphere":
-            self.obj_bounds = Bounds(-5.12,5.12)
-        elif self.fn == "styblinski-tang":
-            self.obj_bounds = Bounds(-5.00,5.00)
-        else:
-            print("Input for 'obj' is not valid.")
+        self.obj_bounds = set_bounds(self.fn)
+
+        # Create the agent's objective
+        self.objective \
+            = Objective(self.fn,self.neighbors,self.obj_bounds,self.norm)
 
         ##### Optimization Properties #####
 
-        self.tmp = tmp  # Initial temperature for the annealing algorithm
-        self.cooling = crt  # Cooling rate for the annealing algorithm
-        self.iterations = itr  # Number of iterations for the optimization
+        self.tmp = agt_opts['tmp']  # Initial temperature for the annealing algorithm
+        self.cooling = agt_opts['crt']  # Cooling rate for the annealing algorithm
+        self.iterations = agt_opts['itr']  # Number of iterations for the optimization
 
         ##### Estimate Properties #####
 
         self.curr_est = Obj_Eval()  # Initialize the agent's current estimate
-        self.mthd = mthd  # Initialize the type of future estimates being made
-        if self.mthd == "future":
-            self.history = []  # First row x's, second row f(x)'s
-            self.hist_med = Obj_Eval()  # Initialize the agent's historical median
-
+        
+        # Select agent experiment type
+        if self.agt_type == 'estimate-definitions':
+                
             # Determine the type of estimate being used by the agent. If greater
             # than estimate probability...
-            if (np.random.random_sample() > prob):
+            if (np.random.random_sample() > agt_opts['p']):
                 self.est_type = "current"  # Set estimate type as current design
             else:  # Else less than or equal to the estimate probability
                 self.est_type = "future"  # Set estimate type as future projection
+            
+            self.history = []  # First row x's, second row f(x)'s
+            self.hist_med = Obj_Eval()  # Initialize the agent's historical median
+    
+        # Otherwise, just use current estimates everywhere
         else:
+            
             self.est_type = "current"  # Set estimate type as current design
 
     def __repr__(self):
@@ -215,7 +206,7 @@ class Agent(object):
     def initialize_estimates(self):
         '''Generates a random value for the initial current estimate.'''
 
-        if self.mthd == "future":
+        if self.est_type == "future":
             # Extract the input and output values from the agent's history.
             self.hist_in = [h.x for h in self.history]
             self.hist_out = [h.fx for h in self.history]
@@ -238,7 +229,7 @@ class Agent(object):
         system. Then, the system feeds the system vector back to the agents
         to populate the objective evaluations.'''
 
-        if self.mthd == "future":
+        if self.est_type == "future":
             # Get the historical median's objective evaluation
             self.hist_med.fx = self.hist_out[self.median_index]
 
@@ -307,21 +298,22 @@ class Agent(object):
         loc_search = {"method": "L-BFGS-B"}
 
         # Call the basin hopping minimization method
-        output = opt.dual_annealing(func = self.objective,
-                         bounds = list(zip(bound_lower,bound_upper)),
-                         x0 = [xi],
-                         args = tuple([xj]),
-                         maxiter = self.iterations,
-                         local_search_options = loc_search,
-                         initial_temp = self.tmp,
-                         # restart_temp_ratio = default,
-                         visit = self.cooling,
-                         # accept = default,
-                         # maxfun = default,
-                         # seed = default,
-                         no_local_search = True,
-                         # callback = default,
-                         )
+        output = opt.dual_annealing(
+            func = self.objective,
+            bounds = list(zip(bound_lower,bound_upper)),
+            x0 = [xi],
+            args = tuple([xj]),
+            maxiter = self.iterations,
+            local_search_options = loc_search,
+            initial_temp = self.tmp,
+            # restart_temp_ratio = default,
+            visit = self.cooling,
+            # accept = default,
+            # maxfun = default,
+            # seed = default,
+            no_local_search = True,
+            # callback = default,
+            )
 
         # Save the desired outputs in float format
         if isinstance(output.fun,np.ndarray):
@@ -335,16 +327,19 @@ class Agent(object):
 
 class Objective:
     '''Based on the agent's own input (xi), a selected function (fn), and
-    the inputs of the other agents (a vector, xj, of length k), this callable
+    the inputs of the other agents (a vector, xj, of length n-1), this callable
     class calculates the specified objective function evaluation and returns
-    the solution. '''
+    the solution. (Bounds) included for (norm)alization if available.'''
 
-    def __init__(self,fn,neighbors):
+    def __init__(self,fn,neighbors,bounds,norm):
         '''Initializes the objective function with the specified input function
-        given by (fn) and calculates its degree (k) from its neighbors.'''
+        given by (fn) and calculates the number of variables (n) from its
+        neighbors with one added for itself.'''
 
         self.fn = fn  # The selected objective function
-        self.k = len(neighbors)  # The agent's degree
+        self.n = len(neighbors) + 1  # Number of variables in calculations
+        self.bounds = bounds  # Instance of Bounds for the objective function
+        self.norm = norm  # Whether or not to normalize function eval
 
 
     def __call__(self,xi,xj):
@@ -366,19 +361,22 @@ class Objective:
             # Set values of constants for ackley function
             a = 20
             b = 0.2
-            c = 2*pi
+            c = 0.2*pi
 
             # Build the sums for function evaluation
-            cos_sum = 0
+            cos_sum = cos(c*xi)
             for j in xj:
-                cos_sum = cos_sum + cos(c*j)
+                cos_sum += cos(c*j)
 
             # Evaluate the ackley function
-            root_term = -a*exp(-b*sqrt((xi**2 + dot(xj,xj))/(self.k + 1)))
-            cos_term = -exp((cos(c*xi) + cos_sum)/(self.k + 1))
+            root_term = -a*exp(-b*sqrt((xi**2 + dot(xj,xj))/self.n))
+            cos_term = -exp(cos_sum/self.n)
 
             # Return the function evaluation
             result = root_term + cos_term + a + exp(1)
+                
+            # Set args for normalization
+            self.args = {'a': a, 'b': b}
 
         elif self.fn == "griewank":
 
@@ -388,13 +386,13 @@ class Objective:
 
             # Build the sum term
             sum_term = 1
-            for v in vect:
-                sum_term = sum_term + v**2/4000
+            for vv in vect:
+                sum_term += vv**2/4000
 
             # Build the product term
             prod_term = 1
-            for r in range(0,len(vect)):
-                prod_term = prod_term*cos(vect[r]/sqrt(r+1))
+            for rr in vect:
+                prod_term *= cos(rr/sqrt(rr+1))
 
             # Return the function evaluation
             result = sum_term - prod_term
@@ -412,20 +410,19 @@ class Objective:
             # Initialize the sum of all elements
             result = 0  # For the full product of c, exp, and cos
 
-            # Iterate through the len(c) minima
-            for i in range(0,len(c)):
+            # Iterate through the elements of a and c
+            for ii, jj in zip(a,c):
 
                 sqr_sum = 0  # For the sum within the exponent
 
                 # Iterate through the n dimensions of matrix A
-                for j in range(0,len(vect)):
+                for kk in vect:
 
                     # Add element to square sum term
-                    sqr_sum = sqr_sum + (vect[j]-a[i])**2
+                    sqr_sum += (kk-ii)**2
 
                 # Combine into total sum
-                result = result + c[i] \
-                    * exp((-1/pi)*sqr_sum) * cos(pi*sqr_sum)
+                result += jj * exp((-1/pi)*sqr_sum) * cos(pi*sqr_sum)
 
         elif self.fn == "levy":
 
@@ -439,9 +436,8 @@ class Objective:
                 (w[-1]-1)**2*(1+(sin(2*pi*w[-1]))**2)
 
             # Iteratively add sum elements to initial and final sum terms
-            for i in range(0,len(vect)-1):
-                result = result + \
-                    (w[i]-1)**2 * (1 + 10*(sin(pi*w[i]+1))**2)
+            for ii in w[:-1]:
+                result += (ii-1)**2 * (1 + 10*(sin(pi*ii+1))**2)
 
         elif self.fn == "rosenbrock":
 
@@ -482,11 +478,67 @@ class Objective:
                 xj_term = xj_term + j**4 - 16*j**2 + 5*j
 
             # Return the outcome
-            result = 0.5*(xi_term + xj_term) + 39.16599*(self.k + 1)
+            result = 0.5*(xi_term + xj_term) + 39.16599*self.n
 
         # Return the outcome
-        return result
-
+        if self.norm:
+            return self.normalize(result)
+        else:
+            return result
+    
+    
+    def normalize(self,x_start):
+        '''Normalizes the objective function evaluation result if a discrete
+        form is available that approximates the function range. Some functions
+        do not yet have forms calculated and so return the input untouched.
+        Any additional parameters from the function are passed by self.args.'''
+        
+        # Select the correct function to normalize
+        if self.fn == "absolute-sum":
+            
+            m = max(np.abs([self.bounds.xmin,self.bounds.xmax]))
+            x_norm = x_start/(m*self.n)
+            
+        elif self.fn == "ackley":
+            
+            a = self.args['a']
+            b = self.args['b']
+            m = max(np.abs([self.bounds.xmin,self.bounds.xmax]))
+            x_norm = x_start/(a*(1-exp(-b*m)) + (exp(1) - exp(-1)))
+            
+        elif self.fn == "griewank":
+            
+            x_norm = x_start
+            
+        elif self.fn == "langermann":
+            
+            x_norm = x_start
+            
+        elif self.fn == "levy":
+            
+            m = max(np.abs([self.bounds.xmin - 1,self.bounds.xmax - 1]))
+            x_norm = x_start/(1 + ((11*self.n - 9) * m**2/16))
+            
+        elif self.fn == "rosenbrock":
+            
+            x_norm = x_start
+            
+        elif self.fn == "schwefel":
+            
+            x_norm = x_start
+            
+        elif self.fn == "sphere":
+            
+            m = max(np.abs([self.bounds.xmin,self.bounds.xmax]))
+            x_norm = x_start/(self.n * m**2)
+            
+        else: #self.fn == "styblinski-tang"
+            
+            x_norm = x_start
+            
+        # Return the normalized value
+        return x_norm
+    
 
 class Obj_Eval(object):
     '''Defines a class Obj_Eval for function evaluation which has two values,
@@ -528,3 +580,32 @@ class Bounds(object):
         tmax = bool(np.all(x <= self.xmax))
         tmin = bool(np.all(x >= self.xmin))
         return tmin and tmax
+
+
+def set_bounds(fn):
+    '''Returns bounds for the specified objective function.'''
+    
+    # Set decision variable boundaries
+    if fn == "absolute-sum":
+        obj_bounds = Bounds(-10.00,10.00)
+    elif fn == "ackley":
+        obj_bounds = Bounds(-32.768,32.768)
+    elif fn == "griewank":
+        obj_bounds = Bounds(-600.00,600.00)
+    elif fn == "langermann":
+        obj_bounds = Bounds(0.00,10.00)
+    elif fn == "levy":
+        obj_bounds = Bounds(-10.00,10.00)
+    elif fn == "rosenbrock":
+        obj_bounds = Bounds(-5.00,10.00)
+    elif fn == "schwefel":
+        obj_bounds = Bounds(-500.00,500.00)
+    elif fn == "sphere":
+        obj_bounds = Bounds(-5.12,5.12)
+    elif fn == "styblinski-tang":
+        obj_bounds = Bounds(-5.00,5.00)
+    else:
+        print("Input for 'obj' is not valid.")
+        
+    return obj_bounds
+    

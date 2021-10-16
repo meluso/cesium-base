@@ -30,8 +30,8 @@ import matplotlib.pylab as plt
 import doe_lhs as doe
 
 # Specify test parameters
-obj_fns = ["ackley","griewank","langermann","levy","rosenbrock","schwefel",
-           "sphere","styblinski-tang"]
+obj_fns = ["absolute-sum","ackley","griewank","langermann","levy","rosenbrock",
+           "schwefel","sphere","styblinski-tang"]
 obj_num=len(obj_fns)
 iterations=10
 

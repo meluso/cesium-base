@@ -53,8 +53,8 @@ def plot_data(filename):
     # Build network graph in figure
     nx.draw_kamada_kawai(system.graph, **options)
     if save_figs:
-        plt.savefig("network_graph.tif", format='tif', dpi=250)
-        plt.savefig("network_graph.eps", format='eps', dpi=250)
+        plt.savefig("../tests/network_graph.tif", format='tif', dpi=250)
+        plt.savefig("../tests/network_graph.eps", format='eps', dpi=250)
     plt.show()
 
     #degree histogram
@@ -72,8 +72,8 @@ def plot_data(filename):
     plt.ylabel("Fraction of Nodes")
     plt.xlabel("Artifact Degree")
     if save_figs:
-        plt.savefig("degree_distribution.tif", format='tif', dpi=250)
-        plt.savefig("degree_distribution.eps", format='eps', dpi=250)
+        plt.savefig("../tests/degree_distribution.tif", format='tif', dpi=250)
+        plt.savefig("../tests/degree_distribution.eps", format='eps', dpi=250)
     plt.show()
 
     # Create figure for system performance

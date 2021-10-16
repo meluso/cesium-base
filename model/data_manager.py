@@ -17,7 +17,7 @@ def get_test_loc():
     if sys.platform.startswith('linux'):
         loc = "~/cesium/data/test/"
     else:
-        loc = ""
+        loc = "../data/test/"
     return loc + "test"
 
 

@@ -32,41 +32,105 @@ import data_manager as dm
 import get_params as gp
 import run_model as rm
 import test_plot as tp
+import numpy as np
 from numpy.random import default_rng
 
 # Create the random number generator
 rng = default_rng()
 
-if __name__ == '__main__':
 
-    # Specify run mode
-    run_mode = "random"
-    #run_mode = ""
+def test_system(run_mode,obj='absolute-sum',plot=False):
 
-    if run_mode == "random":
-
+    # Check for random
+    if run_mode == 'random':
         params_all = gp.get_params()
         case = rng.integers(len(params_all))
         params_run = params_all[case]
-
+        
     else:
-
-        params_run = {'ind': 999999,
-                      'run': 999999,
-                      'nod': 500,
-                      'obj': "styblinski-tang",
-                      'edg': 2,
-                      'tri': 0.4,
-                      'con': 0.1,
-                      'cyc': 100,
-                      'tmp': 10,
-                      'itr': 1,
-                      'mth': "future",
-                      'prb': 0.5,
-                      'crt': 2.62
-                      }
-
+        
+        # Map inputs
+        net_mode = run_mode[0]
+        agt_mode = run_mode[1]
+    
+        # Set network mode
+        if net_mode == 'holme-kim':
+            net_opts = {
+                    'n': 64,
+                    'edg': 2,
+                    'tri': 0.5,
+                    }
+        else:
+            print('Not a valid network mode.')
+            
+        # Set agent mode
+        if agt_mode == 'estimate':
+            agt_opts = {
+                    'obj': obj,
+                    'norm': True,
+                    'p': 0.5,
+                    'tmp': 100,
+                    'itr': 1,
+                    'crt': 2.62,
+                    }
+        else:  # agt_mode == 'default'
+            agt_mode = 'default'
+            agt_opts = {
+                    'obj': obj,
+                    'norm': True,
+                    'tmp': 100,
+                    'itr': 1,
+                    'crt': 2.62,
+                    }
+    
+        # Construct parameters
+        params_run = {
+            'ind': 999999,
+            'run': 999999,
+            'net': net_mode,
+            'agt': agt_mode,
+            'con': 0.001,
+            'cyc': 100,
+            'net_opts': net_opts,
+            'agt_opts': agt_opts
+            }
+    
+    # Run test
     summary, history, system = rm.run_model(params_run)
     dm.save_test(summary, history, system)
-    if not(sys.platform.startswith('linux')):
+    if not(sys.platform.startswith('linux')) and plot:
         tp.plot_test()
+    return summary[-3]
+
+
+if __name__ == '__main__':
+
+    # Specify run mode
+    run_modes = [
+        # 'random',
+        #('holme-kim','default'),
+        # ('holme-kim','estimate')
+        ]
+    
+    # Specify test functions
+    test_fns = [
+        'absolute-sum',
+        'sphere',
+        'ackley',
+        'levy'
+        ]
+    
+    # Num runs
+    test_runs = 20
+    
+    # Create duration array
+    duration = np.zeros((len(run_modes),len(test_fns),test_runs))
+    
+    # Run num tests for each function
+    for ii, mode in enumerate(run_modes):
+        for jj, fn in enumerate(test_fns):
+            for kk in range(test_runs):
+                duration[ii,jj,kk] += test_system(mode,fn)
+    
+    # Average results
+    dur_means = np.mean(duration,axis=2)
